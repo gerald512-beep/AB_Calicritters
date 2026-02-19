@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "assignment_unit": "anonymous_user_id",
+  "allocation_version": "v1",
+  "experiments": [
+    {
+      "experiment_id": "exp_3_landing_journey",
+      "status": "RUNNING",
+      "start_at": null,
+      "end_at": null,
+      "targeting": null,
+      "variants": [
+        {
+          "variant_id": "A",
+          "variant_name": "workouts_preloaded",
+          "is_control": true,
+          "weight": 0.34,
+          "config_override": {
+            "navigation": {
+              "default_landing_tab": "workouts"
+            },
+            "workouts": {
+              "preload_default_plan": true
+            }
+          }
+        },
+        {
+          "variant_id": "B",
+          "variant_name": "workouts_starter",
+          "is_control": false,
+          "weight": 0.33,
+          "config_override": {
+            "navigation": {
+              "default_landing_tab": "workouts"
+            },
+            "workouts": {
+              "preload_default_plan": true,
+              "starter_plan": true
+            }
+          }
+        },
+        {
+          "variant_id": "C",
+          "variant_name": "creatures_recommended",
+          "is_control": false,
+          "weight": 0.33,
+          "config_override": {
+            "navigation": {
+              "default_landing_tab": "creatures"
+            },
+            "creatures": {
+              "recommended_creature_id": "frog"
+            },
+            "workouts": {
+              "preload_default_plan": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "experiment_id": "exp_4_achievements_density",
+      "status": "RUNNING",
+      "start_at": null,
+      "end_at": null,
+      "targeting": null,
+      "variants": [
+        {
+          "variant_id": "A",
+          "variant_name": "baseline",
+          "is_control": true,
+          "weight": 0.5,
+          "config_override": {
+            "achievements": {
+              "ui_mode": "baseline"
+            }
+          }
+        },
+        {
+          "variant_id": "B",
+          "variant_name": "minimal_achievements",
+          "is_control": false,
+          "weight": 0.5,
+          "config_override": {
+            "achievements": {
+              "ui_mode": "minimal"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
