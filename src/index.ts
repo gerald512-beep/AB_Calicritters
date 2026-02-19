@@ -185,6 +185,20 @@ app.get("/v1/metrics/summary", async (req, res, next) => {
 });
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (
+    err instanceof SyntaxError &&
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    "type" in err &&
+    (err as { type?: unknown }).type === "entity.parse.failed"
+  ) {
+    return res.status(400).json({
+      error: "Invalid request",
+      message: "Malformed JSON body.",
+    });
+  }
+
   console.error("Unhandled error:", err);
   res.status(500).json({
     error: "Internal Server Error",
