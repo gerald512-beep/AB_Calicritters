@@ -60,3 +60,44 @@ model Assignment {
   @@index([experiment_id])
   @@map("assignments")
 }
+
+model EventLog {
+  id                 String   @id @default(cuid())
+  event_id           String?  @unique
+  anonymous_user_id  String
+  session_id         String?
+  install_id         String?
+  platform           String?
+  app_version        String?
+  event_name         String
+  occurred_at        DateTime
+  received_at        DateTime @default(now())
+  sent_at            DateTime?
+  properties         Json?
+  context            Json?
+  assignment_version Int?
+  assignments        Json?
+  experiment_map     Json?
+  schema_version     Int      @default(1)
+
+  @@index([anonymous_user_id])
+  @@index([session_id])
+  @@index([event_name])
+  @@index([occurred_at])
+  @@map("event_logs")
+}
+
+model MetricRollup {
+  id           String   @id @default(cuid())
+  metric_name  String
+  window_start DateTime
+  window_end   DateTime
+  dimensions   Json?
+  value        Float
+  computed_at  DateTime @default(now())
+
+  @@index([metric_name])
+  @@index([window_start])
+  @@index([window_end])
+  @@map("metric_rollups")
+}

@@ -5,6 +5,11 @@
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import { getAssignmentPayload } from "./services/assignmentService";
+import {
+  EventValidationError,
+  ingestEventBatch,
+} from "./services/eventIngestionService";
+import { computeAndStoreMetricsSummary } from "./services/metricsService";
 import { isDatabaseUnavailableError } from "./utils/dbErrors";
 
 type Platform = "ios" | "android";
@@ -102,6 +107,79 @@ app.post("/v1/assignment", async (req, res, next) => {
       });
     }
 
+    return next(error);
+  }
+});
+
+app.post("/v1/events", async (req, res, next) => {
+  const rawAnonymousUserId =
+    typeof req.body?.anonymous_user_id === "string" ? req.body.anonymous_user_id.trim() : "";
+
+  try {
+    const ingestionResult = await ingestEventBatch(req.body);
+
+    console.log(
+      `events ingest anonymous_user_id=${truncateAnonymousId(rawAnonymousUserId || "unknown")} accepted=${ingestionResult.accepted} rejected=${ingestionResult.rejected}`,
+    );
+
+    return res.status(200).json({
+      ok: true,
+      received_at: ingestionResult.received_at,
+      accepted: ingestionResult.accepted,
+      rejected: ingestionResult.rejected,
+      results: ingestionResult.results,
+    });
+  } catch (error) {
+    if (error instanceof EventValidationError) {
+      return res.status(400).json({
+        error: "Invalid request",
+        message: error.message,
+      });
+    }
+
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/summary", async (req, res, next) => {
+  const queryWindowDays = req.query.window_days;
+  let windowDays: number | undefined;
+
+  if (queryWindowDays !== undefined) {
+    if (typeof queryWindowDays !== "string") {
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "Query parameter 'window_days' must be a single integer value.",
+      });
+    }
+
+    const parsedWindowDays = Number.parseInt(queryWindowDays, 10);
+    if (!Number.isInteger(parsedWindowDays) || parsedWindowDays <= 0 || parsedWindowDays > 30) {
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "Query parameter 'window_days' must be an integer between 1 and 30.",
+      });
+    }
+    windowDays = parsedWindowDays;
+  }
+
+  try {
+    const summary = await computeAndStoreMetricsSummary(windowDays);
+    return res.status(200).json(summary);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
     return next(error);
   }
 });
