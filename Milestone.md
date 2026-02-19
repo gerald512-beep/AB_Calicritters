@@ -3,6 +3,9 @@
 
 ## 1) Repository and Deployment Snapshot
 
+Repo: https://github.com/gerald512-beep/AB_Calicritters
+
+
 Codebase status (main branch):
 
 - Monorepo workspaces:
