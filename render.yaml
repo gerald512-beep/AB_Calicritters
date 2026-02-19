@@ -3,10 +3,25 @@ services:
     name: ab-calicritters-api
     runtime: node
     plan: free
-    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build
-    startCommand: npm start
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build -w @ab-calicritters/api
+    startCommand: npm run start -w @ab-calicritters/api
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: DATABASE_URL
+        sync: false
+      - key: DASHBOARD_TOKEN
+        sync: false
+  - type: web
+    name: ab-calicritters-dashboard
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build -w @ab-calicritters/dashboard
+    startCommand: npm run start -w @ab-calicritters/dashboard
+    healthCheckPath: /overview
+    autoDeploy: true
+    envVars:
+      - key: API_BASE_URL
+        sync: false
+      - key: DASHBOARD_TOKEN
         sync: false

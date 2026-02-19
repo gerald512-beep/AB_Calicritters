@@ -93,17 +93,21 @@ If DB connectivity is unavailable:
 }
 ```
 
-## Metrics Endpoint
+## Metrics Endpoints
 
-`GET /v1/metrics/summary` computes and stores rollups on demand:
+Metrics are read from aggregated rollup tables populated by jobs (`npm run jobs:rollup`).
 
-- `logging_rate_24h` overall and segmented by:
-  - `exp_3_landing_journey` variant
-  - `exp_4_achievements_density` variant
-- `dau` (distinct users by day)
+Public summary endpoint:
 
-Optional query:
-- `window_days` integer `1..30` (default `7`)
+- `GET /v1/metrics/summary?window_days=7`
+
+Dashboard-protected endpoints (header `x-dashboard-token` required):
+
+- `GET /v1/metrics/daily?window_days=7`
+- `GET /v1/metrics/experiments?window_days=7&experiment_id=...`
+- `GET /v1/metrics/funnels?window_days=7&funnel_name=core_journey`
+
+`window_days` must be an integer in `1..90`.
 
 ## Event Name Examples
 

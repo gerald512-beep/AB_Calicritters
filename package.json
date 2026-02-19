@@ -2,7 +2,10 @@
   "name": "ab-calicritters",
   "version": "1.0.0",
   "private": true,
-  "description": "Minimal A/B assignment API server",
+  "description": "AB Calicritters monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
@@ -10,29 +13,25 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "dev": "npm run dev -w @ab-calicritters/api",
+    "build": "npm run build -w @ab-calicritters/api && npm run build -w @ab-calicritters/jobs && npm run build -w @ab-calicritters/dashboard",
+    "start": "npm run start -w @ab-calicritters/api",
+    "check:determinism": "npm run check:determinism -w @ab-calicritters/api",
+    "jobs:rollup": "npm run rollup -w @ab-calicritters/jobs --",
+    "jobs:check:idempotency": "npm run check:idempotency -w @ab-calicritters/jobs",
+    "dashboard:dev": "npm run dev -w @ab-calicritters/dashboard",
+    "dashboard:build": "npm run build -w @ab-calicritters/dashboard",
+    "dashboard:start": "npm run start -w @ab-calicritters/dashboard",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "prisma db seed",
-    "check:determinism": "tsx src/scripts/checkDeterminism.ts",
-    "metrics:rollup": "tsx src/scripts/rollupDailyMetrics.ts"
+    "prisma:seed": "prisma db seed"
   },
   "dependencies": {
-    "@prisma/client": "^6.3.1",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "semver": "^7.7.1",
-    "zod": "^3.24.1"
+    "@prisma/client": "^6.3.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.23",
-    "@types/node": "^22.13.8",
-    "@types/semver": "^7.7.0",
     "prisma": "^6.3.1",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
+    "tsx": "^4.19.3"
   }
 }

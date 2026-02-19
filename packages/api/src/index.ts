@@ -9,7 +9,12 @@ import {
   EventValidationError,
   ingestEventBatch,
 } from "./services/eventIngestionService";
-import { computeAndStoreMetricsSummary } from "./services/metricsService";
+import {
+  getDailyMetrics,
+  getExperimentMetrics,
+  getFunnelMetrics,
+  getSummaryMetrics,
+} from "./services/aggregationService";
 import { isDatabaseUnavailableError } from "./utils/dbErrors";
 
 type Platform = "ios" | "android";
@@ -38,6 +43,57 @@ function truncateAnonymousId(anonymousUserId: string): string {
     return anonymousUserId;
   }
   return `${anonymousUserId.slice(0, 8)}...${anonymousUserId.slice(-4)}`;
+}
+
+function parseWindowDays(
+  queryValue: unknown,
+  res: Response,
+  maxDays: number = 90,
+): number | null {
+  if (queryValue === undefined) {
+    return 7;
+  }
+
+  if (typeof queryValue !== "string") {
+    res.status(400).json({
+      error: "Invalid request",
+      message: "Query parameter 'window_days' must be a single integer value.",
+    });
+    return null;
+  }
+
+  const parsedWindowDays = Number.parseInt(queryValue, 10);
+  if (!Number.isInteger(parsedWindowDays) || parsedWindowDays <= 0 || parsedWindowDays > maxDays) {
+    res.status(400).json({
+      error: "Invalid request",
+      message: `Query parameter 'window_days' must be an integer between 1 and ${maxDays}.`,
+    });
+    return null;
+  }
+
+  return parsedWindowDays;
+}
+
+function requireDashboardToken(req: Request, res: Response, next: NextFunction): void {
+  const expectedToken = process.env.DASHBOARD_TOKEN;
+  if (!expectedToken) {
+    res.status(503).json({
+      error: "Service Unavailable",
+      message: "Dashboard token is not configured.",
+    });
+    return;
+  }
+
+  const providedToken = req.header("x-dashboard-token");
+  if (!providedToken || providedToken !== expectedToken) {
+    res.status(401).json({
+      error: "Unauthorized",
+      message: "Missing or invalid dashboard token.",
+    });
+    return;
+  }
+
+  next();
 }
 
 app.get("/health", (_req, res) => {
@@ -149,30 +205,84 @@ app.post("/v1/events", async (req, res, next) => {
 });
 
 app.get("/v1/metrics/summary", async (req, res, next) => {
-  const queryWindowDays = req.query.window_days;
-  let windowDays: number | undefined;
-
-  if (queryWindowDays !== undefined) {
-    if (typeof queryWindowDays !== "string") {
-      return res.status(400).json({
-        error: "Invalid request",
-        message: "Query parameter 'window_days' must be a single integer value.",
-      });
-    }
-
-    const parsedWindowDays = Number.parseInt(queryWindowDays, 10);
-    if (!Number.isInteger(parsedWindowDays) || parsedWindowDays <= 0 || parsedWindowDays > 30) {
-      return res.status(400).json({
-        error: "Invalid request",
-        message: "Query parameter 'window_days' must be an integer between 1 and 30.",
-      });
-    }
-    windowDays = parsedWindowDays;
+  const windowDays = parseWindowDays(req.query.window_days, res, 90);
+  if (windowDays === null) {
+    return;
   }
 
   try {
-    const summary = await computeAndStoreMetricsSummary(windowDays);
+    const summary = await getSummaryMetrics(windowDays);
     return res.status(200).json(summary);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/daily", requireDashboardToken, async (req, res, next) => {
+  const windowDays = parseWindowDays(req.query.window_days, res, 90);
+  if (windowDays === null) {
+    return;
+  }
+
+  try {
+    const metrics = await getDailyMetrics(windowDays);
+    return res.status(200).json(metrics);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/experiments", requireDashboardToken, async (req, res, next) => {
+  const windowDays = parseWindowDays(req.query.window_days, res, 90);
+  if (windowDays === null) {
+    return;
+  }
+
+  const experimentId =
+    typeof req.query.experiment_id === "string" && req.query.experiment_id.trim()
+      ? req.query.experiment_id.trim()
+      : undefined;
+
+  try {
+    const metrics = await getExperimentMetrics(windowDays, experimentId);
+    return res.status(200).json(metrics);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/funnels", requireDashboardToken, async (req, res, next) => {
+  const windowDays = parseWindowDays(req.query.window_days, res, 90);
+  if (windowDays === null) {
+    return;
+  }
+
+  const funnelName =
+    typeof req.query.funnel_name === "string" && req.query.funnel_name.trim()
+      ? req.query.funnel_name.trim()
+      : undefined;
+
+  try {
+    const metrics = await getFunnelMetrics(windowDays, funnelName);
+    return res.status(200).json(metrics);
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
       return res.status(503).json({

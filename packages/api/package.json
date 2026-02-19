@@ -1,0 +1,29 @@
+{
+  "name": "@ab-calicritters/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express API for AB Calicritters",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "check:determinism": "tsx src/scripts/checkDeterminism.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "semver": "^7.7.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.13.8",
+    "@types/semver": "^7.7.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

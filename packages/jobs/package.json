@@ -1,0 +1,24 @@
+{
+  "name": "@ab-calicritters/jobs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Analytics jobs worker for AB Calicritters",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "rollup": "tsx src/rollupCli.ts",
+    "build": "tsc -p tsconfig.json",
+    "check:idempotency": "tsx src/checkIdempotency.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.8",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

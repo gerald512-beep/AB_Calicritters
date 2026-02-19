@@ -14,6 +14,12 @@ enum ExperimentStatus {
   ENDED
 }
 
+enum RollupRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 model Experiment {
   experiment_id          String             @id
   status                 ExperimentStatus
@@ -100,4 +106,72 @@ model MetricRollup {
   @@index([window_start])
   @@index([window_end])
   @@map("metric_rollups")
+}
+
+model DailyMetricRollup {
+  id            String   @id @default(cuid())
+  day           DateTime
+  metric_name   String
+  dimension_key String   @default("overall")
+  dimensions    Json?
+  value         Float
+  computed_at   DateTime @default(now())
+
+  @@unique([day, metric_name, dimension_key], name: "daily_metric_rollup_unique")
+  @@index([day])
+  @@index([metric_name])
+  @@map("daily_metric_rollups")
+}
+
+model ExperimentMetricRollup {
+  id            String   @id @default(cuid())
+  day           DateTime
+  experiment_id String
+  variant_id    String
+  metric_name   String
+  value         Float
+  dimensions    Json?
+  computed_at   DateTime @default(now())
+
+  @@unique([day, experiment_id, variant_id, metric_name], name: "experiment_metric_rollup_unique")
+  @@index([day])
+  @@index([experiment_id])
+  @@index([variant_id])
+  @@map("experiment_metric_rollups")
+}
+
+model FunnelRollup {
+  id            String   @id @default(cuid())
+  day           DateTime
+  funnel_name   String
+  step_name     String
+  dimension_key String   @default("overall")
+  experiment_id String?
+  variant_id    String?
+  users_count   Int
+  events_count  Int
+  computed_at   DateTime @default(now())
+
+  @@unique([day, funnel_name, step_name, dimension_key], name: "funnel_rollup_unique")
+  @@index([day])
+  @@index([experiment_id])
+  @@index([variant_id])
+  @@map("funnel_rollups")
+}
+
+model RollupRun {
+  id           String          @id @default(cuid())
+  job_name     String
+  started_at   DateTime        @default(now())
+  finished_at  DateTime?
+  status       RollupRunStatus
+  window_start DateTime
+  window_end   DateTime
+  rows_written Int             @default(0)
+  ignored_count Int            @default(0)
+  error_text   String?
+
+  @@index([job_name])
+  @@index([started_at])
+  @@map("rollup_runs")
 }
