@@ -2,8 +2,10 @@
  * Quick start:
  * curl -X POST "http://localhost:3000/v1/assignment" -H "Content-Type: application/json" -d "{\"anonymous_user_id\":\"550e8400-e29b-41d4-a716-446655440000\",\"platform\":\"ios\",\"app_version\":\"0.1\"}"
  */
+import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
-import { buildAssignmentResponse } from "./assignments";
+import { getAssignmentPayload } from "./services/assignmentService";
+import { isDatabaseUnavailableError } from "./utils/dbErrors";
 
 type Platform = "ios" | "android";
 
@@ -37,7 +39,7 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
-app.post("/v1/assignment", (req, res) => {
+app.post("/v1/assignment", async (req, res, next) => {
   const { anonymous_user_id, session_id, platform, app_version, install_id } = req.body ?? {};
 
   if (typeof anonymous_user_id !== "string" || !anonymous_user_id.trim()) {
@@ -69,20 +71,39 @@ app.post("/v1/assignment", (req, res) => {
   }
 
   const anonymousUserId = anonymous_user_id.trim();
-  const { experiments, client_config } = buildAssignmentResponse(anonymousUserId);
-  const selectedVariants = experiments.map((exp) => `${exp.experiment_id}:${exp.variant_id}`);
+  try {
+    const assignmentPayload = await getAssignmentPayload({
+      anonymous_user_id: anonymousUserId,
+      session_id,
+      platform,
+      app_version,
+      install_id,
+    });
+    const selectedVariants = assignmentPayload.assignments.map(
+      (assignment) => `${assignment.experiment_id}:${assignment.variant_id}`,
+    );
 
-  console.log(
-    `assignment request anonymous_user_id=${truncateAnonymousId(anonymousUserId)} variants=${selectedVariants.join(",")}`,
-  );
+    console.log(
+      `assignment request anonymous_user_id=${truncateAnonymousId(anonymousUserId)} variants=${selectedVariants.join(",")}`,
+    );
 
-  return res.status(200).json({
-    anonymous_user_id: anonymousUserId,
-    assignment_version: 1,
-    generated_at: new Date().toISOString(),
-    experiments,
-    client_config,
-  });
+    return res.status(200).json({
+      anonymous_user_id: anonymousUserId,
+      assignment_version: assignmentPayload.assignment_version,
+      generated_at: new Date().toISOString(),
+      assignments: assignmentPayload.assignments,
+      config: assignmentPayload.config,
+    });
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+
+    return next(error);
+  }
 });
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

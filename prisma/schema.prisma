@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  ENDED
+}
+
+model Experiment {
+  experiment_id          String             @id
+  status                 ExperimentStatus
+  start_at               DateTime?
+  end_at                 DateTime?
+  targeting              Json?
+  config_schema_version  Int                @default(1)
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+  variants               ExperimentVariant[]
+  assignments            Assignment[]
+
+  @@map("experiments")
+}
+
+model ExperimentVariant {
+  id            String     @id @default(cuid())
+  experiment_id String
+  variant_id    String
+  variant_name  String
+  is_control    Boolean    @default(false)
+  weight        Float
+  config        Json
+  created_at    DateTime   @default(now())
+  experiment    Experiment @relation(fields: [experiment_id], references: [experiment_id], onDelete: Cascade)
+
+  @@unique([experiment_id, variant_id], name: "experiment_variant_unique")
+  @@index([experiment_id])
+  @@map("experiment_variants")
+}
+
+model Assignment {
+  id                 String     @id @default(cuid())
+  anonymous_user_id  String
+  experiment_id      String
+  variant_id         String
+  assigned_at        DateTime   @default(now())
+  assignment_version Int        @default(1)
+  context            Json?
+  experiment         Experiment @relation(fields: [experiment_id], references: [experiment_id], onDelete: Cascade)
+
+  @@unique([anonymous_user_id, experiment_id], name: "assignment_user_experiment_unique")
+  @@index([anonymous_user_id])
+  @@index([experiment_id])
+  @@map("assignments")
+}
