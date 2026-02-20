@@ -16,7 +16,22 @@ Codebase status (main branch):
   - `prisma/schema.prisma`
   - Prisma migrations in `prisma/migrations/*`
 
-Render status (verified on February 19, 2026):
+Current deployment (new server, verified on February 20, 2026):
+
+- Host server: `sepal.stdusr.yale.internal` (`10.10.10.101`)
+- Internal API URL: `http://sepal.stdusr.yale.internal/health`
+- Internal Dashboard URL: `http://sepal.stdusr.yale.internal/overview`
+- Public temporary URL (Cloudflare tunnel):
+  - Base: `https://smaller-effectiveness-viewer-configurations.trycloudflare.com`
+  - API health: `https://smaller-effectiveness-viewer-configurations.trycloudflare.com/health`
+  - Dashboard: `https://smaller-effectiveness-viewer-configurations.trycloudflare.com/overview`
+- Services deployed on the new server:
+  - `ab-calicritters-api.service`
+  - `ab-calicritters-dashboard.service`
+  - `ab-calicritters-rollup.timer` (daily analytics rollups)
+  - `ab-calicritters-cloudflared.service` (public tunnel)
+
+Former Render deployment (legacy, still available as fallback; Render deploy status checked February 20, 2026):
 
 - API service: `https://ab-calicritters-api.onrender.com` (live)
 - Dashboard service: `https://ab-calicritters-dashboard.onrender.com` (live)
@@ -185,3 +200,6 @@ Reference: `docs/EVENT_INGESTION_API.md`
    Need observability without leaking full identifiers.
    - Resolution: request logs mask/truncate `anonymous_user_id`.
 
+5. Migration from Render to self-hosted server  
+   Internal server host was not directly reachable from outside campus network on ports 80/443.
+   - Resolution: deployed app on `sepal.stdusr.yale.internal` and exposed temporary public access through a Cloudflare quick tunnel while keeping Render as fallback.
