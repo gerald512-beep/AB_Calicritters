@@ -1,0 +1,87 @@
+{
+  "config": {
+    "target": "http://localhost:3000",
+    "phases": [
+      {
+        "name": "warmup",
+        "duration": 15,
+        "arrivalRate": 2
+      },
+      {
+        "name": "main",
+        "duration": 60,
+        "arrivalRate": 6
+      }
+    ],
+    "http": {
+      "timeout": 10
+    },
+    "plugins": {
+      "metrics-by-endpoint": {}
+    },
+    "processor": "../processor.cjs"
+  },
+  "scenarios": [
+    {
+      "name": "assignment_then_events",
+      "flow": [
+        {
+          "function": "setMixedPayload"
+        },
+        {
+          "post": {
+            "url": "/v1/assignment",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ assignment_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "{{ assignment_platform }}",
+              "app_version": "{{ assignment_version }}",
+              "install_id": "loadtest-install"
+            }
+          }
+        },
+        {
+          "post": {
+            "url": "/v1/events",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ assignment_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "ios",
+              "app_version": "0.1.0",
+              "events": [
+                {
+                  "event_name": "app_opened",
+                  "occurred_at": "{{ event_occurred_at }}",
+                  "properties": {
+                    "load_test_run_id": "{{ lt_run_id }}",
+                    "load_test_phase": "{{ lt_phase }}",
+                    "load_test_scenario": "{{ lt_scenario }}"
+                  }
+                },
+                {
+                  "event_name": "session_submitted",
+                  "occurred_at": "{{ event_occurred_at }}",
+                  "properties": {
+                    "load_test_run_id": "{{ lt_run_id }}",
+                    "load_test_phase": "{{ lt_phase }}",
+                    "load_test_scenario": "{{ lt_scenario }}"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

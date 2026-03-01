@@ -1,0 +1,108 @@
+{
+  "config": {
+    "target": "http://localhost:3000",
+    "phases": [
+      {
+        "name": "warmup",
+        "duration": 15,
+        "arrivalRate": 2
+      },
+      {
+        "name": "main",
+        "duration": 60,
+        "arrivalRate": 8
+      }
+    ],
+    "http": {
+      "timeout": 10
+    },
+    "plugins": {
+      "metrics-by-endpoint": {}
+    },
+    "processor": "../processor.cjs"
+  },
+  "scenarios": [
+    {
+      "name": "events_normal_batch",
+      "weight": 80,
+      "flow": [
+        {
+          "function": "setEventsPayload"
+        },
+        {
+          "post": {
+            "url": "/v1/events",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ event_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "ios",
+              "app_version": "0.1.0",
+              "events": [
+                {
+                  "event_name": "app_opened",
+                  "occurred_at": "{{ event_occurred_at }}",
+                  "properties": {
+                    "load_test_run_id": "{{ lt_run_id }}",
+                    "load_test_phase": "{{ lt_phase }}",
+                    "load_test_scenario": "{{ lt_scenario }}"
+                  }
+                },
+                {
+                  "event_name": "session_submitted",
+                  "occurred_at": "{{ event_occurred_at }}",
+                  "properties": {
+                    "load_test_run_id": "{{ lt_run_id }}",
+                    "load_test_phase": "{{ lt_phase }}",
+                    "load_test_scenario": "{{ lt_scenario }}"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "events_duplicate_event_id",
+      "weight": 20,
+      "flow": [
+        {
+          "function": "setEventsDuplicatePayload"
+        },
+        {
+          "post": {
+            "url": "/v1/events",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ event_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "ios",
+              "app_version": "0.1.0",
+              "events": [
+                {
+                  "event_id": "{{ event_id }}",
+                  "event_name": "app_opened",
+                  "occurred_at": "{{ event_occurred_at }}",
+                  "properties": {
+                    "load_test_run_id": "{{ lt_run_id }}",
+                    "load_test_phase": "{{ lt_phase }}",
+                    "load_test_scenario": "{{ lt_scenario }}"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

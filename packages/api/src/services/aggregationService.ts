@@ -1,3 +1,4 @@
+import { LoadTestPhase, Prisma } from "@prisma/client";
 import prisma from "../db/prisma";
 
 type DailyMetricRow = {
@@ -41,6 +42,53 @@ function toObject(value: unknown): Record<string, unknown> | null {
     return value as Record<string, unknown>;
   }
   return null;
+}
+
+type LoadTestRunWithRelations = Prisma.LoadTestRunGetPayload<{
+  include: { endpoint_metrics: true; data_checks: true };
+}>;
+
+function mapLoadTestRun(run: LoadTestRunWithRelations) {
+  return {
+    id: run.id,
+    run_name: run.run_name,
+    scenario_name: run.scenario_name,
+    phase: run.phase,
+    status: run.status,
+    target_base_url: run.target_base_url,
+    git_sha: run.git_sha,
+    started_at: run.started_at.toISOString(),
+    ended_at: run.ended_at ? run.ended_at.toISOString() : null,
+    duration_ms: run.duration_ms,
+    artifacts_path: run.artifacts_path,
+    tags: toObject(run.tags),
+    notes: run.notes,
+    error_text: run.error_text,
+    endpoint_metrics: run.endpoint_metrics.map((metric) => ({
+      endpoint: metric.endpoint,
+      method: metric.method,
+      requests_total: metric.requests_total,
+      success_count: metric.success_count,
+      error_count: metric.error_count,
+      timeout_count: metric.timeout_count,
+      error_rate: metric.error_rate,
+      min_ms: metric.min_ms,
+      max_ms: metric.max_ms,
+      mean_ms: metric.mean_ms,
+      p50_ms: metric.p50_ms,
+      p95_ms: metric.p95_ms,
+      p99_ms: metric.p99_ms,
+      rps: metric.rps,
+      response_codes: toObject(metric.response_codes),
+      error_breakdown: toObject(metric.error_breakdown),
+    })),
+    data_checks: run.data_checks.map((check) => ({
+      check_name: check.check_name,
+      passed: check.passed,
+      observed_value: check.observed_value,
+      details: toObject(check.details),
+    })),
+  };
 }
 
 export async function getDailyMetrics(windowDays: number): Promise<{
@@ -354,5 +402,227 @@ export async function getSummaryMetrics(windowDays: number): Promise<{
   return {
     generated_at: new Date().toISOString(),
     metrics,
+  };
+}
+
+export async function getLoadTestRuns(params: {
+  limit: number;
+  scenarioName?: string;
+  phase?: LoadTestPhase;
+}): Promise<{
+  generated_at: string;
+  runs: Array<ReturnType<typeof mapLoadTestRun>>;
+}> {
+  const runs = await prisma.loadTestRun.findMany({
+    where: {
+      ...(params.scenarioName ? { scenario_name: params.scenarioName } : {}),
+      ...(params.phase ? { phase: params.phase } : {}),
+    },
+    include: {
+      endpoint_metrics: {
+        orderBy: [{ method: "asc" }, { endpoint: "asc" }],
+      },
+      data_checks: {
+        orderBy: [{ check_name: "asc" }],
+      },
+    },
+    orderBy: [{ started_at: "desc" }],
+    take: params.limit,
+  });
+
+  return {
+    generated_at: new Date().toISOString(),
+    runs: runs.map((run) => mapLoadTestRun(run)),
+  };
+}
+
+export async function getLatestLoadTests(phase?: LoadTestPhase): Promise<{
+  generated_at: string;
+  by_phase: Record<string, ReturnType<typeof mapLoadTestRun> | null>;
+}> {
+  if (phase) {
+    const run = await prisma.loadTestRun.findFirst({
+      where: { phase },
+      include: {
+        endpoint_metrics: {
+          orderBy: [{ method: "asc" }, { endpoint: "asc" }],
+        },
+        data_checks: {
+          orderBy: [{ check_name: "asc" }],
+        },
+      },
+      orderBy: [{ started_at: "desc" }],
+    });
+
+    return {
+      generated_at: new Date().toISOString(),
+      by_phase: {
+        [phase]: run ? mapLoadTestRun(run) : null,
+      },
+    };
+  }
+
+  const [baselineRun, postRun] = await Promise.all([
+    prisma.loadTestRun.findFirst({
+      where: { phase: LoadTestPhase.BASELINE },
+      include: {
+        endpoint_metrics: {
+          orderBy: [{ method: "asc" }, { endpoint: "asc" }],
+        },
+        data_checks: {
+          orderBy: [{ check_name: "asc" }],
+        },
+      },
+      orderBy: [{ started_at: "desc" }],
+    }),
+    prisma.loadTestRun.findFirst({
+      where: { phase: LoadTestPhase.POST_MITIGATION },
+      include: {
+        endpoint_metrics: {
+          orderBy: [{ method: "asc" }, { endpoint: "asc" }],
+        },
+        data_checks: {
+          orderBy: [{ check_name: "asc" }],
+        },
+      },
+      orderBy: [{ started_at: "desc" }],
+    }),
+  ]);
+
+  return {
+    generated_at: new Date().toISOString(),
+    by_phase: {
+      BASELINE: baselineRun ? mapLoadTestRun(baselineRun) : null,
+      POST_MITIGATION: postRun ? mapLoadTestRun(postRun) : null,
+    },
+  };
+}
+
+export async function getLoadTestComparison(params: {
+  baselineRunId: string;
+  candidateRunId: string;
+}): Promise<{
+  generated_at: string;
+  baseline: ReturnType<typeof mapLoadTestRun>;
+  candidate: ReturnType<typeof mapLoadTestRun>;
+  endpoint_deltas: Array<{
+    method: string;
+    endpoint: string;
+    baseline_p95_ms: number | null;
+    candidate_p95_ms: number | null;
+    delta_p95_ms: number | null;
+    baseline_p99_ms: number | null;
+    candidate_p99_ms: number | null;
+    delta_p99_ms: number | null;
+    baseline_error_rate: number | null;
+    candidate_error_rate: number | null;
+    delta_error_rate: number | null;
+    baseline_rps: number | null;
+    candidate_rps: number | null;
+    delta_rps: number | null;
+  }>;
+  check_deltas: Array<{
+    check_name: string;
+    baseline_passed: boolean | null;
+    candidate_passed: boolean | null;
+    baseline_observed: number | null;
+    candidate_observed: number | null;
+  }>;
+}> {
+  const [baselineRun, candidateRun] = await Promise.all([
+    prisma.loadTestRun.findUniqueOrThrow({
+      where: { id: params.baselineRunId },
+      include: {
+        endpoint_metrics: true,
+        data_checks: true,
+      },
+    }),
+    prisma.loadTestRun.findUniqueOrThrow({
+      where: { id: params.candidateRunId },
+      include: {
+        endpoint_metrics: true,
+        data_checks: true,
+      },
+    }),
+  ]);
+
+  const baselineMapped = mapLoadTestRun(baselineRun);
+  const candidateMapped = mapLoadTestRun(candidateRun);
+
+  const baselineMetricMap = new Map(
+    baselineMapped.endpoint_metrics.map((metric) => [`${metric.method}|${metric.endpoint}`, metric]),
+  );
+  const candidateMetricMap = new Map(
+    candidateMapped.endpoint_metrics.map((metric) => [`${metric.method}|${metric.endpoint}`, metric]),
+  );
+  const endpointKeys = Array.from(new Set([...baselineMetricMap.keys(), ...candidateMetricMap.keys()])).sort();
+
+  const endpointDeltas = endpointKeys.map((key) => {
+    const baseline = baselineMetricMap.get(key) ?? null;
+    const candidate = candidateMetricMap.get(key) ?? null;
+    const [method, endpoint] = key.split("|");
+    return {
+      method,
+      endpoint,
+      baseline_p95_ms: baseline?.p95_ms ?? null,
+      candidate_p95_ms: candidate?.p95_ms ?? null,
+      delta_p95_ms:
+        baseline?.p95_ms !== null &&
+        baseline?.p95_ms !== undefined &&
+        candidate?.p95_ms !== null &&
+        candidate?.p95_ms !== undefined
+          ? candidate.p95_ms - baseline.p95_ms
+          : null,
+      baseline_p99_ms: baseline?.p99_ms ?? null,
+      candidate_p99_ms: candidate?.p99_ms ?? null,
+      delta_p99_ms:
+        baseline?.p99_ms !== null &&
+        baseline?.p99_ms !== undefined &&
+        candidate?.p99_ms !== null &&
+        candidate?.p99_ms !== undefined
+          ? candidate.p99_ms - baseline.p99_ms
+          : null,
+      baseline_error_rate: baseline?.error_rate ?? null,
+      candidate_error_rate: candidate?.error_rate ?? null,
+      delta_error_rate:
+        baseline?.error_rate !== null &&
+        baseline?.error_rate !== undefined &&
+        candidate?.error_rate !== null &&
+        candidate?.error_rate !== undefined
+          ? candidate.error_rate - baseline.error_rate
+          : null,
+      baseline_rps: baseline?.rps ?? null,
+      candidate_rps: candidate?.rps ?? null,
+      delta_rps:
+        baseline?.rps !== null &&
+        baseline?.rps !== undefined &&
+        candidate?.rps !== null &&
+        candidate?.rps !== undefined
+          ? candidate.rps - baseline.rps
+          : null,
+    };
+  });
+
+  const baselineChecks = new Map(
+    baselineMapped.data_checks.map((check) => [check.check_name, check]),
+  );
+  const candidateChecks = new Map(
+    candidateMapped.data_checks.map((check) => [check.check_name, check]),
+  );
+  const checkNames = Array.from(new Set([...baselineChecks.keys(), ...candidateChecks.keys()])).sort();
+  const checkDeltas = checkNames.map((checkName) => ({
+    check_name: checkName,
+    baseline_passed: baselineChecks.get(checkName)?.passed ?? null,
+    candidate_passed: candidateChecks.get(checkName)?.passed ?? null,
+    baseline_observed: baselineChecks.get(checkName)?.observed_value ?? null,
+    candidate_observed: candidateChecks.get(checkName)?.observed_value ?? null,
+  }));
+
+  return {
+    generated_at: new Date().toISOString(),
+    baseline: baselineMapped,
+    candidate: candidateMapped,
+    endpoint_deltas: endpointDeltas,
+    check_deltas: checkDeltas,
   };
 }

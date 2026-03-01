@@ -79,6 +79,9 @@ Dashboard endpoints (require `x-dashboard-token`):
 - `GET /v1/metrics/daily?window_days=7`
 - `GET /v1/metrics/experiments?window_days=7&experiment_id=...`
 - `GET /v1/metrics/funnels?window_days=7&funnel_name=core_journey`
+- `GET /v1/metrics/load-tests/runs?limit=20`
+- `GET /v1/metrics/load-tests/latest`
+- `GET /v1/metrics/load-tests/compare?baseline_run_id=...&candidate_run_id=...`
 
 See:
 
@@ -102,6 +105,98 @@ Jobs write into:
 - `rollup_runs`
 
 Rollups are idempotent via unique constraints + upsert/rewrite logic.
+
+## Milestone 2 Concurrency Load Testing
+
+The repo includes Artillery scenarios and a run pipeline that stores baseline and post-mitigation
+results in Postgres for dashboard visualization.
+
+### What is measured
+
+- Error rate (`5xx`, timeouts, transport errors)
+- Throughput (RPS)
+- Latency (`p50`, `p95`, `p99`)
+- Data consistency checks:
+  - duplicate assignment rows
+  - duplicate event IDs
+  - scoped sticky-assignment conflicts
+  - scoped row presence for assignment/event load-test tags
+  - rollup overlap control
+
+### Data storage
+
+Load-test outputs are persisted to:
+
+- `load_test_runs`
+- `load_test_endpoint_metrics`
+- `load_test_data_checks`
+
+Raw Artillery artifacts are written to:
+
+- `artifacts/load-tests/*.json`
+- `artifacts/load-tests/*.html`
+
+### Artillery scenarios
+
+- `packages/jobs/loadtests/scenarios/assignment.json`
+- `packages/jobs/loadtests/scenarios/events.json`
+- `packages/jobs/loadtests/scenarios/mixed.json`
+
+### Run baseline locally
+
+1. Start API locally:
+   - `npm run dev`
+2. Run baseline scenarios (separate terminal):
+   - `npm run loadtest:baseline:assignment`
+   - `npm run loadtest:baseline:events`
+   - `npm run loadtest:baseline:mixed`
+
+Or run with explicit tags and metadata:
+
+- `npm run loadtest:run -- --scenario assignment --phase baseline --target http://localhost:3000 --run-name baseline_assignment_v1 --tag env=laptop --tag cohort=baseline`
+- `npm run loadtest:run -- --scenario events --phase baseline --target http://localhost:3000 --run-name baseline_events_v1 --tag env=laptop --tag cohort=baseline`
+
+Enforce gates immediately after each run:
+
+- `npm run loadtest:assert -- --scenario assignment --phase baseline --max-error-rate 0.01`
+- `npm run loadtest:assert -- --scenario events --phase baseline --max-error-rate 0.01`
+
+### Run post-mitigation tests
+
+- `npm run loadtest:run -- --scenario assignment --phase post_mitigation --target http://localhost:3000 --run-name post_assignment_v1 --tag env=laptop --tag cohort=post`
+- `npm run loadtest:run -- --scenario events --phase post_mitigation --target http://localhost:3000 --run-name post_events_v1 --tag env=laptop --tag cohort=post`
+- `npm run loadtest:run -- --scenario mixed --phase post_mitigation --target http://localhost:3000 --run-name post_mixed_v1 --tag env=laptop --tag cohort=post`
+
+### Start/end and run tags
+
+Each run records:
+
+- `started_at`
+- `ended_at`
+- `duration_ms`
+- `phase` (`BASELINE` or `POST_MITIGATION`)
+- `scenario_name`
+- custom key/value tags via repeated `--tag key=value`
+
+### Automated control gates
+
+Use the assertion command to enforce milestone pass/fail controls:
+
+- `npm run loadtest:assert -- --run-id <load_test_run_id>`
+- `npm run loadtest:assert -- --scenario mixed --phase post_mitigation --max-error-rate 0.01`
+
+### Dashboard
+
+Open dashboard tab:
+
+- `/benchmarks`
+
+It displays:
+
+- latest baseline and post-mitigation runs
+- endpoint metric deltas
+- data consistency check deltas
+- recent run history
 
 ## Scheduling on Free Tier
 

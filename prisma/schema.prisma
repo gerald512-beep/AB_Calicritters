@@ -20,6 +20,17 @@ enum RollupRunStatus {
   FAILED
 }
 
+enum LoadTestRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum LoadTestPhase {
+  BASELINE
+  POST_MITIGATION
+}
+
 model Experiment {
   experiment_id          String             @id
   status                 ExperimentStatus
@@ -174,4 +185,74 @@ model RollupRun {
   @@index([job_name])
   @@index([started_at])
   @@map("rollup_runs")
+}
+
+model LoadTestRun {
+  id              String                @id @default(cuid())
+  run_name        String
+  scenario_name   String
+  phase           LoadTestPhase
+  status          LoadTestRunStatus
+  target_base_url String
+  git_sha         String?
+  started_at      DateTime              @default(now())
+  ended_at        DateTime?
+  duration_ms     Int?
+  tags            Json?
+  artifacts_path  String?
+  notes           String?
+  error_text      String?
+  created_at      DateTime              @default(now())
+  updated_at      DateTime              @updatedAt
+  endpoint_metrics LoadTestEndpointMetric[]
+  data_checks     LoadTestDataCheck[]
+
+  @@index([phase, started_at])
+  @@index([status, started_at])
+  @@index([scenario_name, started_at])
+  @@map("load_test_runs")
+}
+
+model LoadTestEndpointMetric {
+  id                  String       @id @default(cuid())
+  run_id              String
+  endpoint            String
+  method              String
+  requests_total      Int
+  success_count       Int?
+  error_count         Int?
+  timeout_count       Int?
+  error_rate          Float?
+  min_ms              Float?
+  max_ms              Float?
+  mean_ms             Float?
+  p50_ms              Float?
+  p95_ms              Float?
+  p99_ms              Float?
+  rps                 Float?
+  response_codes      Json?
+  error_breakdown     Json?
+  created_at          DateTime     @default(now())
+  run                 LoadTestRun  @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@unique([run_id, method, endpoint], name: "load_test_endpoint_unique")
+  @@index([run_id])
+  @@index([endpoint, method])
+  @@map("load_test_endpoint_metrics")
+}
+
+model LoadTestDataCheck {
+  id             String      @id @default(cuid())
+  run_id         String
+  check_name     String
+  passed         Boolean
+  observed_value Float?
+  details        Json?
+  created_at     DateTime    @default(now())
+  run            LoadTestRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@unique([run_id, check_name], name: "load_test_check_unique")
+  @@index([run_id])
+  @@index([check_name])
+  @@map("load_test_data_checks")
 }

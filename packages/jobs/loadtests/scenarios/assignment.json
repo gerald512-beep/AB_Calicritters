@@ -1,0 +1,78 @@
+{
+  "config": {
+    "target": "http://localhost:3000",
+    "phases": [
+      {
+        "name": "warmup",
+        "duration": 15,
+        "arrivalRate": 3
+      },
+      {
+        "name": "main",
+        "duration": 60,
+        "arrivalRate": 10
+      }
+    ],
+    "http": {
+      "timeout": 10
+    },
+    "plugins": {
+      "metrics-by-endpoint": {}
+    },
+    "processor": "../processor.cjs"
+  },
+  "scenarios": [
+    {
+      "name": "assignment_hotkey",
+      "weight": 30,
+      "flow": [
+        {
+          "function": "setHotkeyAssignmentPayload"
+        },
+        {
+          "post": {
+            "url": "/v1/assignment",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ assignment_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "{{ assignment_platform }}",
+              "app_version": "{{ assignment_version }}",
+              "install_id": "loadtest-install"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "assignment_unique_users",
+      "weight": 70,
+      "flow": [
+        {
+          "function": "setUniqueAssignmentPayload"
+        },
+        {
+          "post": {
+            "url": "/v1/assignment",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-load-test-run-id": "{{ lt_run_id }}",
+              "x-load-test-phase": "{{ lt_phase }}"
+            },
+            "json": {
+              "anonymous_user_id": "{{ assignment_user_id }}",
+              "session_id": "{{ lt_session_id }}",
+              "platform": "{{ assignment_platform }}",
+              "app_version": "{{ assignment_version }}",
+              "install_id": "loadtest-install"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

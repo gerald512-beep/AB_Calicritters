@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .env
+.env.local
 .DS_Store
 packages/*/dist/
 packages/dashboard/.next/
+packages/dashboard/.env.local
+artifacts/

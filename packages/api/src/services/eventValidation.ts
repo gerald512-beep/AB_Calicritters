@@ -1,9 +1,10 @@
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 import { z } from "zod";
 
 const EVENT_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
 const MAX_EVENT_NAME_LENGTH = 80;
 const FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_EVENTS_PER_BATCH = 100;
 
 const jsonObjectSchema = z.object({}).catchall(z.unknown());
 
@@ -14,7 +15,10 @@ const batchEnvelopeSchema = z.object({
   platform: z.enum(["ios", "android"]).optional(),
   app_version: z.string().optional(),
   sent_at: z.string().optional(),
-  events: z.array(z.unknown()).min(1, "events must be a non-empty array"),
+  events: z
+    .array(z.unknown())
+    .min(1, "events must be a non-empty array")
+    .max(MAX_EVENTS_PER_BATCH, `events must contain at most ${MAX_EVENTS_PER_BATCH} items`),
 });
 
 const eventSchema = z.object({
@@ -75,6 +79,25 @@ function parseIsoDate(dateValue: string): Date | null {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
 
+function formatUuidFromBytes(bytes: Buffer): string {
+  const hex = bytes.toString("hex");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
+
+function deterministicEventId(seed: string): string {
+  const digest = createHash("sha256").update(seed).digest().subarray(0, 16);
+  // UUIDv5-compatible bit layout from deterministic hash bytes.
+  digest[6] = (digest[6] & 0x0f) | 0x50;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  return formatUuidFromBytes(digest);
+}
+
 function firstIssueMessage(error: z.ZodError): string {
   const issue = error.issues[0];
   if (!issue) {
@@ -130,7 +153,19 @@ export function parseEventBatchRequest(
       return;
     }
 
-    const eventId = parsedEvent.data.event_id ?? randomUUID();
+    const eventId =
+      parsedEvent.data.event_id ??
+      deterministicEventId(
+        [
+          envelope.data.anonymous_user_id.trim(),
+          envelope.data.session_id ?? "",
+          envelope.data.install_id ?? "",
+          envelope.data.sent_at ?? "",
+          String(index),
+          parsedEvent.data.event_name,
+          parsedEvent.data.occurred_at,
+        ].join("|"),
+      );
     acceptedEvents.push({
       index,
       event_id: eventId,

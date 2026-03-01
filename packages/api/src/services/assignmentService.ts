@@ -129,11 +129,8 @@ async function resolveVariantForExperiment(params: {
       assignment_version: ASSIGNMENT_VERSION,
       context: assignmentContext,
     },
-    update: {
-      variant_id: selectedVariant.variant_id,
-      assignment_version: ASSIGNMENT_VERSION,
-      context: assignmentContext,
-    },
+    // Keep first persisted assignment sticky; avoid extra write churn on races.
+    update: {},
   });
 
   return variantsById.get(persisted.variant_id) ?? selectedVariant;
@@ -172,23 +169,29 @@ export async function getAssignmentPayload(
   });
 
   const assignmentByExperimentId = mapByExperimentId(existingAssignments);
+  // Resolve eligible experiments concurrently; apply config merge in deterministic order.
+  const resolvedExperiments = await Promise.all(
+    eligibleExperiments.map(async (experiment) => {
+      const selectedVariant = await resolveVariantForExperiment({
+        experiment,
+        context,
+        existingAssignment: assignmentByExperimentId.get(experiment.experiment_id),
+      });
+      return { experiment, selectedVariant };
+    }),
+  );
+
   const assignments: AssignmentResponsePayload["assignments"] = [];
   let mergedConfig = deepMerge({}, BASELINE_CONFIG);
 
-  for (const experiment of eligibleExperiments) {
-    const selectedVariant = await resolveVariantForExperiment({
-      experiment,
-      context,
-      existingAssignment: assignmentByExperimentId.get(experiment.experiment_id),
-    });
-
+  for (const resolved of resolvedExperiments) {
     assignments.push({
-      experiment_id: experiment.experiment_id,
-      variant_id: selectedVariant.variant_id,
-      variant_name: selectedVariant.variant_name,
+      experiment_id: resolved.experiment.experiment_id,
+      variant_id: resolved.selectedVariant.variant_id,
+      variant_name: resolved.selectedVariant.variant_name,
     });
 
-    mergedConfig = deepMerge(mergedConfig, toJsonObject(selectedVariant.config));
+    mergedConfig = deepMerge(mergedConfig, toJsonObject(resolved.selectedVariant.config));
   }
 
   return {

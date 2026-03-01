@@ -13,6 +13,9 @@ import {
   getDailyMetrics,
   getExperimentMetrics,
   getFunnelMetrics,
+  getLatestLoadTests,
+  getLoadTestComparison,
+  getLoadTestRuns,
   getSummaryMetrics,
 } from "./services/aggregationService";
 import { isDatabaseUnavailableError } from "./utils/dbErrors";
@@ -36,6 +39,12 @@ app.use((req, res, next) => {
 
 function validatePlatform(value: unknown): value is Platform {
   return value === "ios" || value === "android";
+}
+
+function isLoadTestPhase(
+  value: unknown,
+): value is "BASELINE" | "POST_MITIGATION" {
+  return value === "BASELINE" || value === "POST_MITIGATION";
 }
 
 function truncateAnonymousId(anonymousUserId: string): string {
@@ -283,6 +292,97 @@ app.get("/v1/metrics/funnels", requireDashboardToken, async (req, res, next) => 
   try {
     const metrics = await getFunnelMetrics(windowDays, funnelName);
     return res.status(200).json(metrics);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/load-tests/runs", requireDashboardToken, async (req, res, next) => {
+  const limitRaw = req.query.limit;
+  const limit =
+    typeof limitRaw === "string" && Number.isInteger(Number.parseInt(limitRaw, 10))
+      ? Math.min(Math.max(Number.parseInt(limitRaw, 10), 1), 100)
+      : 20;
+  const scenarioName =
+    typeof req.query.scenario_name === "string" && req.query.scenario_name.trim()
+      ? req.query.scenario_name.trim()
+      : undefined;
+  const phaseRaw = req.query.phase;
+  if (phaseRaw !== undefined && !isLoadTestPhase(phaseRaw)) {
+    return res.status(400).json({
+      error: "Invalid request",
+      message: "Query parameter 'phase' must be BASELINE or POST_MITIGATION.",
+    });
+  }
+  const phase = isLoadTestPhase(phaseRaw) ? phaseRaw : undefined;
+
+  try {
+    const runs = await getLoadTestRuns({
+      limit,
+      scenarioName,
+      phase,
+    });
+    return res.status(200).json(runs);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/load-tests/latest", requireDashboardToken, async (req, res, next) => {
+  const phaseRaw = req.query.phase;
+  if (phaseRaw !== undefined && !isLoadTestPhase(phaseRaw)) {
+    return res.status(400).json({
+      error: "Invalid request",
+      message: "Query parameter 'phase' must be BASELINE or POST_MITIGATION.",
+    });
+  }
+  const phase = isLoadTestPhase(phaseRaw) ? phaseRaw : undefined;
+
+  try {
+    const latest = await getLatestLoadTests(phase);
+    return res.status(200).json(latest);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "Database is temporarily unavailable. Please retry.",
+      });
+    }
+    return next(error);
+  }
+});
+
+app.get("/v1/metrics/load-tests/compare", requireDashboardToken, async (req, res, next) => {
+  const baselineRunId =
+    typeof req.query.baseline_run_id === "string" ? req.query.baseline_run_id.trim() : "";
+  const candidateRunId =
+    typeof req.query.candidate_run_id === "string" ? req.query.candidate_run_id.trim() : "";
+  if (!baselineRunId || !candidateRunId) {
+    return res.status(400).json({
+      error: "Invalid request",
+      message:
+        "Query parameters 'baseline_run_id' and 'candidate_run_id' are required.",
+    });
+  }
+
+  try {
+    const comparison = await getLoadTestComparison({
+      baselineRunId,
+      candidateRunId,
+    });
+    return res.status(200).json(comparison);
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
       return res.status(503).json({
