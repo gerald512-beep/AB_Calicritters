@@ -11,6 +11,8 @@ Node.js + TypeScript monorepo for A/B assignments, event ingestion, analytics jo
 
 ## Architecture
 
+![Architecture Diagram](./Architecture%20v1.jpeg)
+
 1. Mobile app requests sticky assignments from `POST /v1/assignment`
 2. Mobile app sends event batches to `POST /v1/events`
 3. Events are enriched with assignment context and stored in `event_logs`
@@ -238,3 +240,18 @@ Render env vars required for dashboard:
 Apply production migrations:
 
 - `npm run prisma:migrate:deploy`
+
+## Yale Server Deploy Helper
+
+For direct Yale server deployment (pull latest main, install, generate Prisma client, run migrations,
+restart API/dashboard services, and verify `/health`, `/v1/assignment`, `/v1/events`, `/overview`,
+`/benchmarks`):
+
+- Remote script: `scripts/yale/deploy_and_verify.sh`
+- Local PowerShell launcher (streams script over SSH): `scripts/yale/run_remote_deploy.ps1`
+
+Example:
+
+- `powershell -ExecutionPolicy Bypass -File scripts/yale/run_remote_deploy.ps1`
+- With explicit host/path overrides:
+  - `powershell -ExecutionPolicy Bypass -File scripts/yale/run_remote_deploy.ps1 -HostName 10.10.10.101 -RepoDir /home/calicritters/AB_Calicritters -ApiBaseUrl http://127.0.0.1:3000 -DashBaseUrl http://127.0.0.1:3001`
