@@ -8,7 +8,7 @@ Detailed implementation and deployment summary is documented in:
 
 ## Milestone 2 - Concurrency
 
-### Objective (PDF alignment)
+### Objective
 
 Stress test concurrent backend load on write endpoints, detect concurrency/data-integrity issues,
 apply mitigation techniques, and quantify baseline vs post-mitigation impact with explicit evidence.
