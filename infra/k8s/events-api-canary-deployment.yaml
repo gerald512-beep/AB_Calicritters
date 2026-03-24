@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: events-api-canary
+  namespace: ab-calicritters
+  labels:
+    app: events-api
+    track: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: events-api
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: events-api
+        track: canary
+    spec:
+      containers:
+        - name: events-api
+          image: ab-calicritters/events-api:canary
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: SERVICE_VARIANT
+              value: "canary"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ab-calicritters-secrets
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ab-calicritters-ingress-canary
+  namespace: ab-calicritters
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ab-calicritters.local
+      http:
+        paths:
+          - path: /v1/events
+            pathType: Prefix
+            backend:
+              service:
+                name: events-api-canary
+                port:
+                  number: 80

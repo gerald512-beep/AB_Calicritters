@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: assignment-api
+  namespace: ab-calicritters
+  labels:
+    app: assignment-api
+spec:
+  selector:
+    app: assignment-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000

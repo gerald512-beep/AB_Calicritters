@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ab-calicritters-ingress
+  namespace: ab-calicritters
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ab-calicritters.local
+      http:
+        paths:
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: assignment-api
+                port:
+                  number: 80
+          - path: /v1/assignment
+            pathType: Prefix
+            backend:
+              service:
+                name: assignment-api
+                port:
+                  number: 80
+          - path: /v1/events
+            pathType: Prefix
+            backend:
+              service:
+                name: events-api
+                port:
+                  number: 80

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assignment-api
+  namespace: ab-calicritters
+  labels:
+    app: assignment-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: assignment-api
+  template:
+    metadata:
+      labels:
+        app: assignment-api
+    spec:
+      containers:
+        - name: assignment-api
+          image: ab-calicritters/assignment-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ab-calicritters-secrets
+                  key: DATABASE_URL
+            - name: DASHBOARD_TOKEN
+              value: "minikube-dashboard-token"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20

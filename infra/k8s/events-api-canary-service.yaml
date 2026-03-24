@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: events-api-canary
+  namespace: ab-calicritters
+  labels:
+    app: events-api
+    track: canary
+spec:
+  selector:
+    app: events-api
+    track: canary
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000

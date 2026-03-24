@@ -255,3 +255,45 @@ Example:
 - `powershell -ExecutionPolicy Bypass -File scripts/yale/run_remote_deploy.ps1`
 - With explicit host/path overrides:
   - `powershell -ExecutionPolicy Bypass -File scripts/yale/run_remote_deploy.ps1 -HostName 10.10.10.101 -RepoDir /home/calicritters/AB_Calicritters -ApiBaseUrl http://127.0.0.1:3000 -DashBaseUrl http://127.0.0.1:3001`
+
+## Milestone 3 (Minikube + Canary)
+
+Milestone 3 adds a separate Kubernetes deployment path (without replacing Render) with split backend services and canary rollout for `events-api`.
+
+### Services
+
+- `assignment-api`: serves `POST /v1/assignment`
+- `events-api`: serves `POST /v1/events` (stable + canary tracks)
+
+### One-time local prerequisites
+
+- Docker Desktop running
+- `kubectl` installed
+- `minikube` installed
+- `.env` with `DATABASE_URL`
+
+### Setup and deploy
+
+1. `powershell -ExecutionPolicy Bypass -File scripts/minikube/setup.ps1`
+2. `powershell -ExecutionPolicy Bypass -File scripts/minikube/deploy.ps1`
+
+### Canary controls
+
+- Set weight:
+  - `powershell -ExecutionPolicy Bypass -File scripts/minikube/canary-weight.ps1 -Weight 10`
+  - `powershell -ExecutionPolicy Bypass -File scripts/minikube/canary-weight.ps1 -Weight 50`
+- Rollback:
+  - `powershell -ExecutionPolicy Bypass -File scripts/minikube/rollback.ps1`
+
+### Smoke/evidence
+
+- `powershell -ExecutionPolicy Bypass -File scripts/minikube/smoke-test.ps1 -Requests 200`
+
+Artifacts are written to:
+
+- `artifacts/milestone3/*.json`
+- `artifacts/milestone3/*.log`
+
+See implementation/evidence summary:
+
+- `Milestone3.md`

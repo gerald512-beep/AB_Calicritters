@@ -8,8 +8,12 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:assignment-api": "tsx watch src/assignment-api.ts",
+    "dev:events-api": "tsx watch src/events-api.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "start:assignment-api": "node dist/assignment-api.js",
+    "start:events-api": "node dist/events-api.js",
     "check:determinism": "tsx src/scripts/checkDeterminism.ts"
   },
   "dependencies": {

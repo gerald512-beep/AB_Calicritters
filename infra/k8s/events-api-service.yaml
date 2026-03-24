@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: events-api
+  namespace: ab-calicritters
+  labels:
+    app: events-api
+    track: stable
+spec:
+  selector:
+    app: events-api
+    track: stable
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
