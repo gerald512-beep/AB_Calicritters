@@ -357,6 +357,3 @@ Artifacts should be written under:
   - during fault average `0.9902s`, `p95 2.2529s`, `1/80` HTTP `502`
   - after cleanup average `0.0807s`, `p95 0.1250s`
 
-Milestone summary document:
-
-- `Milestones.md`
