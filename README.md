@@ -297,3 +297,66 @@ Artifacts are written to:
 See implementation/evidence summary:
 
 - `Milestone3.md`
+
+## Milestone 4 (Chaos Engineering)
+
+Milestone 4 extends the Milestone 3 Minikube deployment with Chaos Mesh experiments for:
+
+- pod kill testing
+- network latency testing
+
+### Chaos assets
+
+Configuration:
+
+- `infra/k8s/chaos/events-api-pod-kill.yaml`
+- `infra/k8s/chaos/assignment-api-pod-kill.yaml`
+- `infra/k8s/chaos/api-network-latency.yaml`
+
+Scripts:
+
+- `scripts/minikube/chaos-install.ps1`
+- `scripts/minikube/chaos-kill-test.ps1`
+- `scripts/minikube/chaos-latency-test.ps1`
+- `scripts/minikube/chaos-cleanup.ps1`
+
+### Suggested run order
+
+1. Install Chaos Mesh:
+   - `powershell -ExecutionPolicy Bypass -File scripts/minikube/chaos-install.ps1`
+2. Run pod kill test:
+   - `powershell -ExecutionPolicy Bypass -File scripts/minikube/chaos-kill-test.ps1 -Target events-api`
+   - `powershell -ExecutionPolicy Bypass -File scripts/minikube/chaos-kill-test.ps1 -Target assignment-api`
+3. Run network latency test:
+   - `powershell -ExecutionPolicy Bypass -File scripts/minikube/chaos-latency-test.ps1`
+4. Clean up:
+   - `powershell -ExecutionPolicy Bypass -File scripts/minikube/chaos-cleanup.ps1`
+
+Artifacts should be written under:
+
+- `artifacts/milestone4/`
+
+### Measured outcomes
+
+- `events-api` pod kill:
+  - baseline `60/60` HTTP `200`
+  - during fault `60/60` HTTP `200`
+  - after recovery `60/60` HTTP `200`
+- `assignment-api` pod kill before mitigation:
+  - baseline `60/60` HTTP `200`
+  - during fault `60/60` HTTP `503`
+  - after recovery `60/60` HTTP `200`
+- mitigation:
+  - `infra/k8s/assignment-api-deployment.yaml` was updated from `replicas: 1` to `replicas: 2`
+- `assignment-api` pod kill after mitigation:
+  - baseline `60/60` HTTP `200`
+  - during fault `60/60` HTTP `200`
+  - after recovery `60/60` HTTP `200`
+- `events-api` network latency:
+  - baseline average `0.0872s`, `p95 0.1275s`
+  - during fault average `0.9902s`, `p95 2.2529s`, `1/80` HTTP `502`
+  - after cleanup average `0.0807s`, `p95 0.1250s`
+
+Milestone summary document:
+
+- `Milestones.md`

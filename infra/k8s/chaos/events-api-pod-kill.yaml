@@ -1,0 +1,15 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: events-api-stable-pod-kill
+  namespace: ab-calicritters
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - ab-calicritters
+    labelSelectors:
+      app: events-api
+      track: stable
+  duration: "60s"
