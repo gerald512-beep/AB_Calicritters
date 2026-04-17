@@ -31,7 +31,8 @@ jobs:
                 content: ("Summarize the following PR diff in plain English. Focus on: what changed, why it matters, and any potential risks.\n\n" + $diff)
               }]
             }')")
-          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+          echo "API RESPONSE: $RESPONSE"
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // .error.message // "API error - check logs"')
           BODY=$(printf "## AI PR Summary\n\n%s" "$SUMMARY")
           gh pr comment ${{ github.event.pull_request.number }} \
             --body "$BODY" \
