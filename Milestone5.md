@@ -4,10 +4,10 @@
 
 Milestone 5 adds an LLM into the team's GitHub development workflow. A GitHub Actions workflow
 triggers on every Pull Request and posts an AI-generated summary of the proposed changes as a PR
-comment, using the Anthropic Claude API.
+comment, using the OpenAI API.
 
 The workflow requires no local tooling — it runs entirely inside GitHub Actions and uses the
-`ANTHROPIC_API_KEY` repository secret to authenticate with the Claude API.
+`OPENAI_API_KEY` repository secret to authenticate with the OpenAI API.
 
 ### Environment
 
@@ -44,7 +44,7 @@ Documentation:
 2. GitHub Actions triggers the `PR Summary` workflow.
 3. The runner checks out the repo with full history (`fetch-depth: 0`).
 4. A `git diff origin/<base>...HEAD` produces the full unified diff for the branch.
-5. The diff is sent to the Anthropic Claude API with the prompt:
+5. The diff is sent to the OpenAI API (`gpt-4o`) with the prompt:
    > Summarize the following PR diff in plain English. Focus on: what changed, why it matters,
    > and any potential risks.
 6. The API response is parsed with `jq` to extract the summary text.
@@ -52,7 +52,7 @@ Documentation:
 
 ### Setup
 
-Add the Anthropic API key as a repository secret before the workflow can run:
+Add the OpenAI API key as a repository secret before the workflow can run:
 
 1. Go to the repository on GitHub.
 2. Navigate to **Settings → Secrets and variables → Actions**.
@@ -66,7 +66,7 @@ the PR comment step.
 
 ### How to verify
 
-1. Ensure `ANTHROPIC_API_KEY` is set as described above.
+1. Ensure `OPENAI_API_KEY` is set as described above.
 2. Push a branch with any code change and open a PR against `main`.
 3. After ~30 seconds, the **Comments** tab on the PR should show a comment with the heading
    **AI PR Summary** followed by a plain-English description of the changes.
@@ -75,7 +75,7 @@ the PR comment step.
 
 ### Findings
 
-1. The workflow handles the full diff for feature-sized branches within Claude's context window
+1. The workflow handles the full diff for feature-sized branches within GPT-4o's context window
    without truncation.
 2. Keeping the diff generation and API call in a single step avoids the multiline output
    escaping issues that arise when passing large diffs through `$GITHUB_OUTPUT`.
